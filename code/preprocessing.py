@@ -8,7 +8,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 def preprocess():
-    for i in range(1,50):
+    for i in range(1,5001):
         num_zeroes = 6 - len(str(i))
         zeroes = ""
         for j in range(num_zeroes):

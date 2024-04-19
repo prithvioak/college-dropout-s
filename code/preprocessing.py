@@ -37,9 +37,11 @@ def preprocess():
         new_fp = "data/cars-br-cropped/img_" + zeroes + str(i) + ".jpg"
         im.save(new_fp)
 
-# preprocess()
-
 def get_labels():
+    '''
+    This function reads the txt files and extracts the license plate values.
+    Our labels are just the raw text values of the license plates because we are using CTC loss.
+    '''
     plates = []
     for i in range(1,5001):
         num_zeroes = 6 - len(str(i))
@@ -56,13 +58,9 @@ def get_labels():
             # add plate values to labels array
             plates.append(plate)
     return np.array(plates)
-# plates = get_labels()
-# print(plates[0])
-# print(plates[10])
-# print(plates[-1])
-# print(len(plates))
 
 def get_inputs():
+    # TODO: Implement Spatial Transformer Layer proprocess to improve model performance
     ## 24 is the width, 94 is the height of the image
     # We chose these dimensions to be consistent with the basis paper
     images = np.zeros(shape=(5000, 24, 94, 3)) # 5000 images, 24x94 pixels, 3 channels
@@ -84,5 +82,12 @@ def get_inputs():
         images[i-1] = im_array
     return images
 
-images = get_inputs()
-print(images.shape)
+
+# TODO: call preprocess() if the cropped images are not already saved
+# preprocess()
+
+def get_data():
+    inputs = get_inputs()
+    labels = get_labels()
+    return inputs, labels
+

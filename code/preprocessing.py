@@ -7,9 +7,15 @@ from PIL import Image
 
 import matplotlib.pyplot as plt
 
+
 def preprocess():
+
+    '''
+    This function crops the images to only include the license plate
+    '''
+
     for i in range(1,5001):
-        num_zeroes = 6 - len(str(i))
+        num_zeroes = 6 - len(str(i)) # file name purposes
         zeroes = ""
         for j in range(num_zeroes):
             zeroes += "0" # file name purposes
@@ -19,8 +25,9 @@ def preprocess():
 
         with open(txt_fp, "r") as txt_file:
             file_contents = txt_file.readlines()
-            coords = file_contents[3].split(" ")
-            # add padding of 10 pixels just in case :)
+            coords = file_contents[3].split(" ") # Corner coordinates of the license plate
+
+            # add padding of 5 pixels just in case :)
             # get coordinates to crop image
             left = int(coords[1].split(",")[0]) - 5
             upper = int(coords[1].split(",")[1]) - 5
@@ -58,7 +65,7 @@ def get_labels():
 def get_inputs():
     ## 24 is the width, 94 is the height of the image
     # We chose these dimensions to be consistent with the basis paper
-    images = np.zeros(shape=(5000, 24, 94, 3))
+    images = np.zeros(shape=(5000, 24, 94, 3)) # 5000 images, 24x94 pixels, 3 channels
     for i in range(1,5001):
         num_zeroes = 6 - len(str(i))
         zeroes = ""

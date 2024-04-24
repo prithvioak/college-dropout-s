@@ -4,6 +4,7 @@ from preprocessing import get_data
 
 class small_basic_block(tf.keras.layers.Layer):
     def __init__(self, channel_in, channel_out):
+        super(small_basic_block, self).__init__()
         self.basic_block = tf.keras.Sequential(
             layers = [
                 tf.keras.layers.Conv2D(filters = (channel_out // 4), kernel_size = 1, activation="relu"),
@@ -41,11 +42,11 @@ class LPRNetModel(tf.keras.Model):
             ]
         )
 
-        self.optimizer = tf.keras.optimizers.Adam()
+        self.optimizer = tf.keras.optimizers.legacy.Adam()
 
     def call(self, image):
         keep_features = list()
-        for i,layer in enumerate(self.model.layers()):
+        for i,layer in enumerate(self.model.layers):
             image = layer(image)
             if i in [2, 6, 11, 15]: # ReLU layers
                 keep_features.append(image)
@@ -66,6 +67,7 @@ class LPRNetModel(tf.keras.Model):
         x = tf.concat(global_context, -1)
         x = self.container(x)
         logits = tf.math.reduce_mean(x, axis=2)
+        print("logits:", logits)
 
         return logits
     
@@ -90,7 +92,7 @@ def train(model, train_inputs, train_labels):
         # forward pass
         logits = model.call(train_inputs)
         loss = model.loss(logits, train_labels)
-        print(loss)
+        print("loss: ", loss)
     gradients = tape.gradient(loss, model.trainable_variables)
     model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 

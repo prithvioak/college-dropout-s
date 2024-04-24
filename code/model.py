@@ -30,7 +30,14 @@ class LPRNetModel(tf.keras.Model):
                 small_basic_block(64, 128),
                 tf.keras.layers.BatchNormalization(),
                 tf.keras.layers.ReLU(), # 6
-                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=1, padding="same"),
+                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,2), padding="same"),
+                small_basic_block(64,256),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(),
+                small_basic_block(256,256),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(),
+                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,2), padding="same"),
                 tf.keras.layers.Dropout(rate=dropout_rate),
                 tf.keras.layers.Conv2D(filters = 256, kernel_size = (1,4)),
                 tf.keras.layers.BatchNormalization(),
@@ -64,7 +71,7 @@ class LPRNetModel(tf.keras.Model):
             f = f / f_mean
             global_context.append(f)
         
-        x = tf.concat(global_context, -1)
+        x = tf.concat(values=global_context, axis=-1)
         x = self.container(x)
         logits = tf.math.reduce_mean(x, axis=2)
         print("logits:", logits)
@@ -97,4 +104,4 @@ def train(model, train_inputs, train_labels):
     model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
 data = get_data()
-train(LPRNetModel(), data[0], data[1])
+train(LPRNetModel(), data[0][0:2], data[1][0:2])

@@ -20,7 +20,19 @@ class LPRNetModel(tf.keras.Model):
 
     def __init__(self, lpr_max_len, phase, class_num, dropout_rate, **kwargs):
         super().__init__(**kwargs)
-        pass
+        self.model = tf.keras.Sequential(
+            layers = [
+                tf.keras.layers.Conv2D(filters = 64, kernel_size = 3),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(),
+                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=1, padding="same"),
+                small_basic_block(64, 128),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(),
+                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=1, padding="same"),
+
+            ]
+        )
 
     def forward(self, images):
         pass

@@ -2,6 +2,18 @@ import numpy as np
 import tensorflow as tf
 from preprocessing import get_data
 
+class CustomPadConv2D(tf.keras.layers.Layer):
+    def __init__(self, filters, kernel_size, padding, **kwargs):
+        super(CustomPadConv2D, self).__init__(**kwargs)
+        self.filters = filters
+        self.padding = padding
+        self.conv2d = tf.keras.layers.Conv2D(filters = filters, kernel_size = kernel_size, padding = "valid", strides = 1)
+    
+    def call(self, x):
+        # Custom padding, TODO: check if this is the correct way to pad
+        x_padded = tf.pad(x, [[0, 0], [self.padding[0], self.padding[0]], [0, 0], [0, 0]])
+        return self.conv2d(x_padded)
+
 class small_basic_block(tf.keras.layers.Layer):
     def __init__(self, channel_in, channel_out):
         super(small_basic_block, self).__init__()

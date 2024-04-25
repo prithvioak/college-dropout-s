@@ -84,7 +84,7 @@ def get_inputs():
 
 
 # TODO: call preprocess() if the cropped images are not already saved
-# preprocess()
+preprocess()
 
 def get_data():
     inputs = get_inputs()

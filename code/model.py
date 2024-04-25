@@ -3,6 +3,9 @@ import tensorflow as tf
 from preprocessing import get_data
 
 class CustomPadConv2D(tf.keras.layers.Layer):
+    ''''
+    Custom layer to pad the input tensor before applying a Conv2D layer.
+    '''
     def __init__(self, filters, kernel_size, padding, **kwargs):
         super(CustomPadConv2D, self).__init__(**kwargs)
         self.filters = filters
@@ -10,19 +13,24 @@ class CustomPadConv2D(tf.keras.layers.Layer):
         self.conv2d = tf.keras.layers.Conv2D(filters = filters, kernel_size = kernel_size, padding = "valid", strides = 1)
     
     def call(self, x):
-        # Custom padding, TODO: check if this is the correct way to pad
-        x_padded = tf.pad(x, [[0, 0], [self.padding[0], self.padding[0]], [0, 0], [0, 0]])
+        # Custom padding is (# images, height, width, channels)
+        x_padded = tf.pad(tensor = x, paddings= [[0, 0], [self.padding[0], self.padding[0]], [self.padding[1], self.padding[1]], [0, 0]])
         return self.conv2d(x_padded)
 
 class small_basic_block(tf.keras.layers.Layer):
+    '''
+    Small basic block as defined in the paper. It is a sequence of 4 Conv2D layers with ReLU activations.
+    '''
     def __init__(self, channel_in, channel_out):
         super(small_basic_block, self).__init__()
         self.basic_block = tf.keras.Sequential(
             layers = [
                 tf.keras.layers.Conv2D(filters = (channel_out // 4), kernel_size = 1, activation="relu"),
                 # padding is more basic in tf, so this is not an exact replica of the padding used in the paper
-                tf.keras.layers.Conv2D(filters = (channel_out // 4), kernel_size = (3,1), padding="same", activation="relu"),
-                tf.keras.layers.Conv2D(filters = (channel_out // 4), kernel_size = (1,3), padding="same", activation="relu"),
+                # tf.keras.layers.Conv2D(filters = (channel_out // 4), kernel_size = (3,1), padding="same", activation="relu"),
+                # tf.keras.layers.Conv2D(filters = (channel_out // 4), kernel_size = (1,3), padding="same", activation="relu"),
+                CustomPadConv2D(filters = (channel_out // 4), kernel_size = (3,1), padding=(1,0)),
+                CustomPadConv2D(filters = (channel_out // 4), kernel_size = (1,3), padding=(0,1)),
                 tf.keras.layers.Conv2D(filters = channel_out, kernel_size=1)
             ])
     def call(self, x):
@@ -104,9 +112,12 @@ class LPRNetModel(tf.keras.Model):
         """
         Calculates the model's prediction accuracy
         """
-        # TODO
+        # TODO ask about this
+        return 0
 
 def train(model, train_inputs, train_labels):
+    acc = []
+
     with tf.GradientTape() as tape:
         # forward pass
         logits = model.call(train_inputs)
@@ -114,6 +125,7 @@ def train(model, train_inputs, train_labels):
         print("loss: ", loss)
     gradients = tape.gradient(loss, model.trainable_variables)
     model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    acc.append(model.accuracy(logits, train_labels))
 
 data = get_data()
 train(LPRNetModel(), data[0][0:2], data[1][0:2])

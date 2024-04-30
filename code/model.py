@@ -46,27 +46,35 @@ class LPRNetModel(tf.keras.Model):
                 tf.keras.layers.Conv2D(filters = 64, kernel_size = 3),
                 tf.keras.layers.BatchNormalization(),
                 tf.keras.layers.ReLU(), # 2 
-                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=1, padding="same"),
+                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,1)),
                 small_basic_block(64, 128),
                 tf.keras.layers.BatchNormalization(),
                 tf.keras.layers.ReLU(), # 6
-                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,2), padding="same"),
+                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,2)),
                 small_basic_block(64,256),
                 tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.ReLU(),
+                tf.keras.layers.ReLU(), # 10
                 small_basic_block(256,256),
                 tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.ReLU(),
-                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,2), padding="same"),
+                tf.keras.layers.ReLU(), # 13
+                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,2)),
                 tf.keras.layers.Dropout(rate=dropout_rate),
                 tf.keras.layers.Conv2D(filters = 256, kernel_size = (1,4)),
                 tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.ReLU(), # 11
+                tf.keras.layers.ReLU(), # 18
                 tf.keras.layers.Dropout(rate=dropout_rate),
-                tf.keras.layers.Conv2D(filters = class_num, kernel_size = (1,13)),
+                tf.keras.layers.Conv2D(filters = class_num, kernel_size = (13,1)),
                 tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.ReLU(), # 15
+                tf.keras.layers.ReLU(), # 22
             ]
+        )
+
+        self.container = tf.keras.Sequential(
+            tf.keras.layers.Conv2D(filters=class_num, kernel_size=(1, 1), strides=(1, 1)),
+            # nn.BatchNorm2d(num_features=self.class_num),
+            # nn.ReLU(),
+            # nn.Conv2d(in_channels=self.class_num, out_channels=self.lpr_max_len+1, kernel_size=3, stride=2),
+            # nn.ReLU(),
         )
 
         self.optimizer = tf.keras.optimizers.legacy.Adam()
@@ -75,7 +83,7 @@ class LPRNetModel(tf.keras.Model):
         keep_features = list()
         for i,layer in enumerate(self.model.layers):
             image = layer(image)
-            if i in [2, 6, 11, 15]: # ReLU layers
+            if i in [2, 6, 13, 22]: # ReLU layers
                 keep_features.append(image)
         global_context = list()
         # build global_context
@@ -87,11 +95,17 @@ class LPRNetModel(tf.keras.Model):
                 # f = tf.nn.AvgPool2d(kernel_size=(4, 10), stride=(4, 2))(f)
                 f = tf.keras.layers.AveragePooling2D(pool_size=(4, 10), strides=(4, 2))(f)
             f_pow = tf.math.square(f)
-            f_mean = tf.math.reduce_mean(f_pow)
+            f_mean = tf.math.reduce_mean(f_pow) # TODO is this right?
             f = f / f_mean
             global_context.append(f)
+
+        print("global_context[0] shape after:", global_context[0].shape)
+        print("global_context[1] shape after:", global_context[1].shape)
+        print("global_context[2] shape after:", global_context[2].shape)
+        print("global_context[3] shape after:", global_context[3].shape)
         
-        x = tf.concat(values=global_context, axis=-1)
+        
+        x = tf.concat(values=global_context, axis=3)
         x = self.container(x)
         logits = tf.math.reduce_mean(x, axis=2)
         print("logits:", logits)
@@ -113,6 +127,65 @@ class LPRNetModel(tf.keras.Model):
         Calculates the model's prediction accuracy
         """
         # TODO ask about this
+        epoch_size = len(datasets) // args.test_batch_size
+        batch_iterator = iter(DataLoader(datasets, args.test_batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=collate_fn))
+
+        Tp = 0
+        Tn_1 = 0
+        Tn_2 = 0
+        t1 = time.time()
+        for i in range(epoch_size):
+            # load train data
+            images, labels, lengths = next(batch_iterator)
+            start = 0
+            targets = []
+            for length in lengths:
+                label = labels[start:start+length]
+                targets.append(label)
+                start += length
+            targets = np.array([el.numpy() for el in targets])
+
+            if args.cuda:
+                images = Variable(images.cuda())
+            else:
+                images = Variable(images)
+
+            # forward
+            prebs = Net(images)
+            # greedy decode
+            prebs = prebs.cpu().detach().numpy()
+            preb_labels = list()
+            for i in range(prebs.shape[0]):
+                preb = prebs[i, :, :]
+                preb_label = list()
+                for j in range(preb.shape[1]):
+                    preb_label.append(np.argmax(preb[:, j], axis=0))
+                no_repeat_blank_label = list()
+                pre_c = preb_label[0]
+                if pre_c != len(CHARS) - 1:
+                    no_repeat_blank_label.append(pre_c)
+                for c in preb_label: # dropout repeate label and blank label
+                    if (pre_c == c) or (c == len(CHARS) - 1):
+                        if c == len(CHARS) - 1:
+                            pre_c = c
+                        continue
+                    no_repeat_blank_label.append(c)
+                    pre_c = c
+                preb_labels.append(no_repeat_blank_label)
+            for i, label in enumerate(preb_labels):
+                if len(label) != len(targets[i]):
+                    Tn_1 += 1
+                    continue
+                if (np.asarray(targets[i]) == np.asarray(label)).all():
+                    Tp += 1
+                else:
+                    Tn_2 += 1
+
+        Acc = Tp * 1.0 / (Tp + Tn_1 + Tn_2)
+        print("[Info] Test Accuracy: {} [{}:{}:{}:{}]".format(Acc, Tp, Tn_1, Tn_2, (Tp+Tn_1+Tn_2)))
+        t2 = time.time()
+        print("[Info] Test Speed: {}s 1/{}]".format((t2 - t1) / len(datasets), len(datasets)))
+            
         return 0
 
 def train(model, train_inputs, train_labels):
@@ -125,7 +198,7 @@ def train(model, train_inputs, train_labels):
         print("loss: ", loss)
     gradients = tape.gradient(loss, model.trainable_variables)
     model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-    acc.append(model.accuracy(logits, train_labels))
+    # acc.append(model.accuracy(logits, train_labels))
 
 data = get_data()
 train(LPRNetModel(), data[0][0:2], data[1][0:2])

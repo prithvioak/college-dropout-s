@@ -83,6 +83,7 @@ class LPRNetModel(tf.keras.Model):
         keep_features = list()
         for i,layer in enumerate(self.model.layers):
             image = layer(image)
+            # print(image.shape)
             if i in [2, 6, 13, 22]: # ReLU layers
                 keep_features.append(image)
         global_context = list()
@@ -104,21 +105,34 @@ class LPRNetModel(tf.keras.Model):
         print("global_context[2] shape after:", global_context[2].shape)
         print("global_context[3] shape after:", global_context[3].shape)
         
-        
         x = tf.concat(values=global_context, axis=3)
         x = self.container(x)
-        logits = tf.math.reduce_mean(x, axis=2)
+        logits = tf.math.reduce_mean(x, axis=1) ## double check this
         print("logits:", logits)
 
         return logits
     
 
-    def loss(self, logits, labels, len_logits, len_labels):
+    def loss(self, logits, labels):
         """
         Calculates CTC loss. We are using CTC loss based on the paper we're using as reference.
         as it doesn't take one-hot encoded vectors and instead taks a string representation of
         the license plate to calculate losses.
         """
+        # Transpose logits to T x N x C format
+        # T represents the number of time steps in the sequence
+        # N represents the batch size
+        # C represents the number of classes
+        logits = tf.transpose(logits, perm=(1, 0, 2))
+        logits = tf.nn.log_softmax(logits)
+        print("logits shape:", logits.shape)
+        print("labels shape:", labels.shape)
+
+        # List of 7s with length 5000 TODO: Change back to 5000
+        len_logits = tf.fill([2], 18)
+        len_labels = tf.fill([2], 7)
+        
+
         loss = tf.nn.ctc_loss(labels, logits, len_labels, len_logits)
         return tf.reduce_mean(loss)
 
@@ -194,7 +208,7 @@ def train(model, train_inputs, train_labels):
     with tf.GradientTape() as tape:
         # forward pass
         logits = model.call(train_inputs)
-        loss = model.loss(logits, train_labels)
+        loss = model.loss(logits, train_labels) 
         print("loss: ", loss)
     gradients = tape.gradient(loss, model.trainable_variables)
     model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))

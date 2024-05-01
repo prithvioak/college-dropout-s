@@ -56,6 +56,7 @@ def get_labels():
             # get the plate values from the txt files
             plate = plate_id[1]
             # add plate values to labels array
+            plate = list(plate)[:-1]
             plates.append(plate)
     return np.array(plates)
 

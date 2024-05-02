@@ -3,6 +3,8 @@ import tensorflow as tf
 from preprocessing import get_data, ALL_CHARS, CHAR_MAP
 import time
 
+batch_size = 500
+
 class CustomPadConv2D(tf.keras.layers.Layer):
     ''''
     Custom layer to pad the input tensor before applying a Conv2D layer.
@@ -27,9 +29,8 @@ class small_basic_block(tf.keras.layers.Layer):
         self.basic_block = tf.keras.Sequential(
             layers = [
                 tf.keras.layers.Conv2D(filters = (channel_out // 4), kernel_size = 1, activation="relu"),
-                # padding is more basic in tf, so this is not an exact replica of the padding used in the paper
-                # tf.keras.layers.Conv2D(filters = (channel_out // 4), kernel_size = (3,1), padding="same", activation="relu"),
-                # tf.keras.layers.Conv2D(filters = (channel_out // 4), kernel_size = (1,3), padding="same", activation="relu"),
+                # Since PyTorch padding is more sophisticated than TensorFlow, we had to create custom padding layers
+                # Each one runs a Conv2D layer with the custom padding
                 CustomPadConv2D(filters = (channel_out // 4), kernel_size = (3,1), padding=(1,0)),
                 CustomPadConv2D(filters = (channel_out // 4), kernel_size = (1,3), padding=(0,1)),
                 tf.keras.layers.Conv2D(filters = channel_out, kernel_size=1)
@@ -72,26 +73,24 @@ class LPRNetModel(tf.keras.Model):
 
         self.container = tf.keras.layers.Conv2D(filters=class_num, kernel_size=(1, 1), strides=(1, 1))
 
-        self.optimizer = tf.keras.optimizers.legacy.Adam()
+        self.optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=0.005)
 
     def call(self, image): # Image shape: (2 x 24 x 94 x 3)
-        keep_features = list()
+        keep_features = []
+        # for each layer
         for i,layer in enumerate(self.model.layers):
+            # pass the input into the layer
             image = layer(image)
-            # print(image.shape)
+            # keep some of the layer outputs to add to the global context
             if i in [2, 6, 13, 22]: # ReLU layers
                 keep_features.append(image)
-                # print("image shape in keep features", image.shape)
-        # print("keep features length", len(keep_features))
         
-        global_context = list()
+        global_context = []
         # build global_context
         for i, f in enumerate(keep_features):
             if i in [0, 1]:
-                # f = tf.nn.AvgPool2d(kernel_size=5, stride=5)(f)
                 f = tf.keras.layers.AveragePooling2D(pool_size=5, strides=5)(f)
             if i in [2]:
-                # f = tf.nn.AvgPool2d(kernel_size=(4, 10), stride=(4, 2))(f)
                 f = tf.keras.layers.AveragePooling2D(pool_size=(4, 10), strides=(4, 2))(f)
             f_pow = tf.math.square(f)
             f_mean = tf.math.reduce_mean(f_pow) # TODO is this right?
@@ -100,12 +99,9 @@ class LPRNetModel(tf.keras.Model):
 
         
         x = tf.concat(values=global_context, axis=3)
-        # x = tf.keras.layers.Conv2D(filters=class_num, kernel_size=(1, 1), strides=(1, 1))
         x = self.container(x)
         logits = tf.math.reduce_mean(x, axis=1) # Over time
         # should reduce across time (axis should be time)
-        # print("logits:", logits)
-        print("logits shape;", logits.shape)
 
         return logits
     
@@ -116,13 +112,7 @@ class LPRNetModel(tf.keras.Model):
         as it doesn't take one-hot encoded vectors and instead taks a string representation of
         the license plate to calculate losses.
         """
-
-        # Example label sequences 
-        # labels_sequences = [
-        #     [1, 2, 3, 4],      # First sequence in the batch
-        #     [5, 6]             # Second sequence in the batch
-        # ]
-
+        
         # Building the SparseTensor for CTC loss
         indices = []  
         values = [] 
@@ -133,7 +123,7 @@ class LPRNetModel(tf.keras.Model):
         sparse_labels = tf.SparseTensor(
             indices=indices,
             values=values,
-            dense_shape=[2, 7]  # Shape [batch_size, max_sequence_length] # TODO: CHANGE TO 5000
+            dense_shape=[batch_size, 7]  # Shape [batch_size, max_sequence_length] # TODO: CHANGE TO 5000
         )
 
         # Transpose logits to T x N x C format
@@ -143,12 +133,8 @@ class LPRNetModel(tf.keras.Model):
         logits = tf.transpose(logits, perm=(1, 0, 2))
         logits = tf.nn.log_softmax(logits, axis=2)
 
-        print("logits shape:", logits.shape)
-        print("labels shape:", labels.shape)
-
-        # List of 7s with length 5000 TODO: Change back to 5000
-        len_logits = tf.fill([2], 18)
-        len_labels = tf.fill([2], 7)
+        len_logits = tf.fill([batch_size], 18)
+        len_labels = tf.fill([batch_size], 7)
         blank_index = 36 # last index in classes
 
         # Normalize logit values
@@ -158,89 +144,75 @@ class LPRNetModel(tf.keras.Model):
         loss = tf.nn.ctc_loss(sparse_labels, log_probs, len_labels, len_logits, blank_index=blank_index, logits_time_major=True)
         return tf.reduce_mean(loss)
 
-    def accuracy(self, logits, labels):
-        """
-        Calculates the model's prediction accuracy
-        """
-        # TODO ask about this
-        epoch_size = len(datasets) // args.test_batch_size
-        batch_iterator = iter(DataLoader(datasets, args.test_batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=collate_fn))
+def accuracy(logits, labels):
+    """
+    Calculates the model's prediction accuracy
+    """
 
-        Tp = 0
-        Tn_1 = 0
-        Tn_2 = 0
-        t1 = time.time()
-        for i in range(epoch_size):
-            # load train data
-            images, labels, lengths = next(batch_iterator)
-            start = 0
-            targets = []
-            for length in lengths:
-                label = labels[start:start+length]
-                targets.append(label)
-                start += length
-            targets = np.array([el.numpy() for el in targets])
+    # TODO ask about this
 
-            if args.cuda:
-                images = Variable(images.cuda())
-            else:
-                images = Variable(images)
+    Tp = 0 # True positives
+    Tn_1 = 0 # Type I Errors: number of sequences where the length of the predicted sequence does not match the length of the true sequence
+    Tn_2 = 0 # Type II Errors: number of sequences where the length matches but the content is incorrect
 
-            # forward
-            prebs = Net(images)
-            # greedy decode
-            prebs = prebs.cpu().detach().numpy()
-            preb_labels = list()
-            for i in range(prebs.shape[0]):
-                preb = prebs[i, :, :]
-                preb_label = list()
-                for j in range(preb.shape[1]):
-                    preb_label.append(np.argmax(preb[:, j], axis=0))
-                no_repeat_blank_label = list()
-                pre_c = preb_label[0]
-                if pre_c != len(CHARS) - 1:
-                    no_repeat_blank_label.append(pre_c)
-                for c in preb_label: # dropout repeate label and blank label
-                    if (pre_c == c) or (c == len(CHARS) - 1):
-                        if c == len(CHARS) - 1:
-                            pre_c = c
-                        continue
-                    no_repeat_blank_label.append(c)
+    # Greedy Decode
+    preb_labels = []
+    for i in range(logits.shape[0]):
+        logit = logits[i, :, :]
+        preb_label = []
+        for j in range(logit.shape[1]):
+            preb_label.append(np.argmax(logit[:, j], axis=0))
+        no_repeat_blank_label = []
+        pre_c = preb_label[0]
+        if pre_c != len(ALL_CHARS) - 1:
+            no_repeat_blank_label.append(pre_c)
+        for c in preb_label: # dropout repeate label and blank label
+            if (pre_c == c) or (c == len(ALL_CHARS) - 1):
+                if c == len(ALL_CHARS) - 1:
                     pre_c = c
-                preb_labels.append(no_repeat_blank_label)
-            for i, label in enumerate(preb_labels):
-                if len(label) != len(targets[i]):
-                    Tn_1 += 1
-                    continue
-                if (np.asarray(targets[i]) == np.asarray(label)).all():
-                    Tp += 1
-                else:
-                    Tn_2 += 1
+                continue
+            no_repeat_blank_label.append(c)
+            pre_c = c
+        preb_labels.append(no_repeat_blank_label)
+        
+    # For each decoded label sequence, check if lengths match and increment as necessary
+    for i, label in enumerate(preb_labels):
+        # if (i < 10):
+        #     print("Label: ", label)
+        #     print("Label length: ", len(label))
+        if len(label) != 7:
+            Tn_1 += 1
+            continue
+        if (np.asarray(labels[i]) == np.asarray(label)).all():
+            Tp += 1
+        else:
+            Tn_2 += 1
 
-        Acc = Tp * 1.0 / (Tp + Tn_1 + Tn_2)
-        print("[Info] Test Accuracy: {} [{}:{}:{}:{}]".format(Acc, Tp, Tn_1, Tn_2, (Tp+Tn_1+Tn_2)))
-        t2 = time.time()
-        print("[Info] Test Speed: {}s 1/{}]".format((t2 - t1) / len(datasets), len(datasets)))
-            
-        return 0
+    # Accuracy =  ratio of Tp to the total number of sequences
+    # i.e. the proportion of sequences that were exactly correct out of all sequences processed
+    total_sequences = (Tp + Tn_1 + Tn_2)
+    accuracy = Tp * 1.0 / total_sequences
+    print(f"[Info] Test Accuracy: {accuracy} [True Positives: {Tp}, Type I Errors: {Tn_1}, Type II Errors: {Tn_2}, Total: {total_sequences}]")
 
-def train(model, train_inputs, train_labels):
+        
+    return 0
+
+def train(model, train_inputs, train_labels, epochs=5):
     acc = []
     input_shape = (None, 24, 94, 3)
     model.build(input_shape) # Input shape
 
-    # dummy_input = tf.random.normal([1, input_features]) 
-    # _ = model(dummy_input) 
-    print(model.summary())
 
-    with tf.GradientTape() as tape:
-        # forward pass
-        logits = model(train_inputs)
-        loss = model.loss(logits, train_labels)
-        print("OMG REAL LOSS", loss) 
-    gradients = tape.gradient(loss, model.trainable_variables)
-    model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-    # acc.append(model.accuracy(logits, train_labels))
+    for epoch in range(epochs):
+        with tf.GradientTape() as tape:
+            # forward pass
+            logits = model(train_inputs)
+            loss = model.loss(logits, train_labels)
+            print(f"Epoch {epoch} Loss:", loss)
+        gradients = tape.gradient(loss, model.trainable_variables)
+        model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+        acc.append(accuracy(logits, train_labels))
+        print("Accuracy:", acc)
 
 data = get_data()
-train(LPRNetModel(), data[0][0:2], data[1][0:2])
+train(LPRNetModel(), data[0][0:batch_size], data[1][0:batch_size])

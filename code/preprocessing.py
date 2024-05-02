@@ -59,6 +59,7 @@ def get_labels():
             plate = plate_id[1]
             # add plate values to labels array
             plate = list(plate)[:-1]
+            # convert all characters to their unique values gathered from the dictionary
             new_plate = []
             for i in plate:
                 new_plate.append(CHAR_MAP[i])

@@ -57,6 +57,8 @@ def get_labels():
             plate = plate_id[1]
             # add plate values to labels array
             plate = list(plate)[:-1]
+            for i in plate:
+                i = ord(i)
             plates.append(plate)
     return np.array(plates)
 
@@ -85,7 +87,7 @@ def get_inputs():
 
 
 # TODO: call preprocess() if the cropped images are not already saved
-preprocess()
+# preprocess()
 
 def get_data():
     inputs = get_inputs()

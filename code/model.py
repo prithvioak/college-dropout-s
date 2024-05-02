@@ -79,13 +79,16 @@ class LPRNetModel(tf.keras.Model):
 
         self.optimizer = tf.keras.optimizers.legacy.Adam()
 
-    def call(self, image):
+    def call(self, image): # Image shape: (2 x 24 x 94 x 3)
         keep_features = list()
         for i,layer in enumerate(self.model.layers):
             image = layer(image)
             # print(image.shape)
             if i in [2, 6, 13, 22]: # ReLU layers
                 keep_features.append(image)
+                # print("image shape in keep features", image.shape)
+        # print("keep features length", len(keep_features))
+        
         global_context = list()
         # build global_context
         for i, f in enumerate(keep_features):
@@ -106,9 +109,13 @@ class LPRNetModel(tf.keras.Model):
         print("global_context[3] shape after:", global_context[3].shape)
         
         x = tf.concat(values=global_context, axis=3)
+        print("post-concat x shape", x.shape)
         x = self.container(x)
-        logits = tf.math.reduce_mean(x, axis=1) ## double check this
-        print("logits:", logits)
+        print("post-container x shape", x.shape)
+        logits = tf.math.reduce_mean(x, axis=1) # Over time
+        print("post-mean shape:", logits.shape)
+        # should reduce across time (axis should be time)
+        # print("logits:", logits)
 
         return logits
     
@@ -119,21 +126,116 @@ class LPRNetModel(tf.keras.Model):
         as it doesn't take one-hot encoded vectors and instead taks a string representation of
         the license plate to calculate losses.
         """
+
+        # DELETE LATER
+        # logits1 = tf.random.normal([100, 2, 37])  # 100 time steps, batch size 2, 39 classes (including blank)
+        # labels1 = tf.SparseTensor(indices=[[0, 0], [1, 0]], values=[1, 2], dense_shape=[2, 7]) 
+        # print("labels shape test", labels1.shape)
+        # len_logits1 = tf.constant([100, 100], dtype=tf.int32)  # All sequences in the batch use 100 time steps
+        # len_labels1 = tf.constant([1, 1], dtype=tf.int32)  # Each label sequence length
+        # blank_index1 = 36  # Assuming the blank label is the last one
+
+        # # Correct CTC Loss call
+        # loss = tf.nn.ctc_loss(
+        #     labels=labels1,
+        #     logits=logits1,
+        #     label_length=len_labels1,
+        #     logit_length=len_logits1,
+        #     blank_index=blank_index1
+        # )
+        # print("CTC Loss:", loss.numpy())
+
+
+        # Example label sequences for two batch items, max length 7
+        # labels_sequences2 = [
+        #     [1, 2, 3, 4],      # First sequence in the batch
+        #     [5, 6]             # Second sequence in the batch
+        # ]
+
+        # # Building the SparseTensor for CTC loss
+        # indices2 = []  # List to hold indices (where to place the label values in the tensor)
+        # values2 = []  # List to hold the actual label values
+
+        # # Populate indices and values
+        # for batch_index, seq in enumerate(labels_sequences2):
+        #     for seq_index, label in enumerate(seq):
+        #         indices2.append([batch_index, seq_index])
+        #         values2.append(label)
+
+        # # Create the SparseTensor
+        # sparse_labels2 = tf.SparseTensor(
+        #     indices=indices2,
+        #     values=values2,
+        #     dense_shape=[2, 7]  # Shape [batch_size, max_sequence_length]
+        # )
+
+        # # Reorder the SparseTensor (necessary to ensure the tensor is properly ordered)
+        # sparse_labels2 = tf.sparse.reorder(sparse_labels2)
+
+        # logits2 = tf.random.normal([100, 2, 37])  # [time_steps, batch_size, num_classes]
+        # len_logits2 = tf.constant([100, 100], dtype=tf.int32)  # Length of logits for each batch
+        # len_labels2 = tf.constant([4, 2], dtype=tf.int32)  # Length of each label sequence
+        # blank_index2 = 36  # The class index for the blank label
+
+        # loss2 = tf.nn.ctc_loss(
+        #     labels=sparse_labels2,
+        #     logits=logits2,
+        #     label_length=len_labels2,
+        #     logit_length=len_logits2,
+        #     blank_index=blank_index2,
+        #     logits_time_major=True  # Ensure this is set according to your logits' shape
+        # )
+        # print("CTC Loss:", loss2.numpy())
+
+        # DELETE LATER
+
+
+
+        # Example label sequences for two batch items, max length 7
+        labels_sequences2 = [
+            [1, 2, 3, 4],      # First sequence in the batch
+            [5, 6]             # Second sequence in the batch
+        ]
+
+        # Building the SparseTensor for CTC loss
+        indices2 = []  # List to hold indices (where to place the label values in the tensor)
+        values2 = []  # List to hold the actual label values
+
+        # Populate indices and values
+        for batch_index, seq in enumerate(labels_sequences2):
+            for seq_index, label in enumerate(seq):
+                indices2.append([batch_index, seq_index])
+                values2.append(label)
+
+        # Create the SparseTensor
+        sparse_labels2 = tf.SparseTensor(
+            indices=indices2,
+            values=values2,
+            dense_shape=[2, 7]  # Shape [batch_size, max_sequence_length]
+        )
+
         # Transpose logits to T x N x C format
         # T represents the number of time steps in the sequence
         # N represents the batch size
         # C represents the number of classes
         logits = tf.transpose(logits, perm=(1, 0, 2))
-        logits = tf.nn.log_softmax(logits)
+        print("logits shape:", logits.shape)
+        logits = tf.nn.log_softmax(logits, axis=2) # TODO check
+
         print("logits shape:", logits.shape)
         print("labels shape:", labels.shape)
 
         # List of 7s with length 5000 TODO: Change back to 5000
         len_logits = tf.fill([2], 18)
         len_labels = tf.fill([2], 7)
-        
+        # convert labels to a sparse tensor of ASCII values
+        labels = tf.convert_to_tensor(labels)
+        labels = tf.sparse.from_dense(labels)
+        print(labels.shape)
+        print(type(labels), type(logits), type(len_labels), type(len_logits))
 
-        loss = tf.nn.ctc_loss(labels, logits, len_labels, len_logits)
+
+        loss = tf.nn.ctc_loss(sparse_labels2, logits, len_labels, len_logits, blank_index=38)
         return tf.reduce_mean(loss)
 
     def accuracy(self, logits, labels):
@@ -208,8 +310,8 @@ def train(model, train_inputs, train_labels):
     with tf.GradientTape() as tape:
         # forward pass
         logits = model.call(train_inputs)
-        loss = model.loss(logits, train_labels) 
-        print("loss: ", loss)
+        loss = model.loss(logits, train_labels)
+        print("OMG REAL LOSS", loss) 
     gradients = tape.gradient(loss, model.trainable_variables)
     model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     # acc.append(model.accuracy(logits, train_labels))

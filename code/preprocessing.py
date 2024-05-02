@@ -7,6 +7,8 @@ from PIL import Image
 
 import matplotlib.pyplot as plt
 
+ALL_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-"
+CHAR_MAP = {char: idx for idx, char in enumerate(ALL_CHARS)}
 
 def preprocess():
 
@@ -57,9 +59,10 @@ def get_labels():
             plate = plate_id[1]
             # add plate values to labels array
             plate = list(plate)[:-1]
+            new_plate = []
             for i in plate:
-                i = ord(i)
-            plates.append(plate)
+                new_plate.append(CHAR_MAP[i])
+            plates.append(new_plate)
     return np.array(plates)
 
 def get_inputs():

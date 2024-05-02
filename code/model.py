@@ -44,7 +44,7 @@ class LPRNetModel(tf.keras.Model):
         super().__init__(**kwargs)
         self.model = tf.keras.Sequential(
             layers = [
-                tf.keras.layers.Conv2D(filters = 64, kernel_size = 3),
+                tf.keras.layers.Conv2D(filters = 64, kernel_size = 3, input_shape=(24, 94, 3)),
                 tf.keras.layers.BatchNormalization(),
                 tf.keras.layers.ReLU(), # 2 
                 tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,1)),

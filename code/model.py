@@ -3,7 +3,7 @@ import tensorflow as tf
 from preprocessing import get_data, ALL_CHARS, CHAR_MAP
 import time
 
-batch_size = 500
+batch_size = 3
 
 class CustomPadConv2D(tf.keras.layers.Layer):
     ''''
@@ -100,6 +100,7 @@ class LPRNetModel(tf.keras.Model):
         
         x = tf.concat(values=global_context, axis=3)
         x = self.container(x)
+        print(x.shape)
         logits = tf.math.reduce_mean(x, axis=1) # Over time
         # should reduce across time (axis should be time)
 
@@ -123,7 +124,7 @@ class LPRNetModel(tf.keras.Model):
         sparse_labels = tf.SparseTensor(
             indices=indices,
             values=values,
-            dense_shape=[batch_size, 7]  # Shape [batch_size, max_sequence_length] # TODO: CHANGE TO 5000
+            dense_shape=[batch_size, 7]  # Shape [batch_size, max_sequence_length]
         )
 
         # Transpose logits to T x N x C format
@@ -133,15 +134,15 @@ class LPRNetModel(tf.keras.Model):
         logits = tf.transpose(logits, perm=(1, 0, 2))
         logits = tf.nn.log_softmax(logits, axis=2)
 
-        len_logits = tf.fill([batch_size], 18)
+        len_logits = tf.fill([batch_size], 18) # Should be 18
         len_labels = tf.fill([batch_size], 7)
         blank_index = 36 # last index in classes
 
         # Normalize logit values
         scaled_logits = logits / tf.reduce_max(tf.abs(logits), axis=-1, keepdims=True)
-        log_probs = tf.nn.log_softmax(scaled_logits) # TODO: MAYBE DON'T NEED
+        scaled_logits = tf.nn.log_softmax(scaled_logits) # TODO: MAYBE DON'T NEED
 
-        loss = tf.nn.ctc_loss(sparse_labels, log_probs, len_labels, len_logits, blank_index=blank_index, logits_time_major=True)
+        loss = tf.nn.ctc_loss(sparse_labels, scaled_logits, len_labels, len_logits, blank_index=blank_index, logits_time_major=True)
         return tf.reduce_mean(loss)
 
 def accuracy(logits, labels):
@@ -149,7 +150,50 @@ def accuracy(logits, labels):
     Calculates the model's prediction accuracy
     """
 
-    # TODO ask about this
+    # seq_lens = tf.fill([batch_size], 18)
+    # # print("seq_lens", seq_lens)
+
+    # # max_time=18 should be 37, batch_size, num_classes 
+    # logits = tf.transpose(logits, perm=(1, 0, 2))
+    # logits = tf.nn.log_softmax(logits, axis=2)
+    # print("logits.shape ",logits.shape)
+
+    # # NEW
+    # decoded, neg_sum_logits = tf.nn.ctc_greedy_decoder(logits, seq_lens) 
+    # print("decoded values", decoded[0].values)
+    # print("decoded indices", decoded[0].indices)
+    # print("decoded dense shape", decoded[0].dense_shape)
+    # print("neg_sum_logits", neg_sum_logits)
+    
+
+    # dense_decoded = tf.sparse.to_dense(decoded[0], default_value=-1)  # Convert sparse to dense and fill with -1 for missing values
+    # dense_decoded = tf.dtypes.cast(dense_decoded, tf.int32)  # Ensure the tensor is of type int for further processing
+
+    # # Now, you might want to trim or pad the outputs to your fixed length (7)
+    # desired_length = 7
+    # dense_decoded = dense_decoded[:, :desired_length]  # Trim to desired length
+    # # If sequences are shorter, you should pad them to the desired length
+    # dense_decoded = tf.pad(dense_decoded, [[0, 0], [0, max(0, desired_length - tf.shape(dense_decoded)[1])]], constant_values=-1)
+
+    # print("Final decoded shape: ", dense_decoded.shape)
+    # print("Final decoded values: ", dense_decoded.numpy())
+
+
+
+
+    
+
+
+
+    
+
+    # # TODO ask about this
+
+    # Logits, pre-transpose (BATCH_SIZE, 18, 37)
+    logits = tf.transpose(logits, perm=(0, 2, 1))
+    print("logits.shape", logits.shape)
+
+    # Shape of logits = (BATCH_SIZE, 37, 18)
 
     Tp = 0 # True positives
     Tn_1 = 0 # Type I Errors: number of sequences where the length of the predicted sequence does not match the length of the true sequence
@@ -174,12 +218,14 @@ def accuracy(logits, labels):
             no_repeat_blank_label.append(c)
             pre_c = c
         preb_labels.append(no_repeat_blank_label)
-        
+    
+    print("preb_labels", preb_labels)
+    print("license plate labels:", labels)
+    
     # For each decoded label sequence, check if lengths match and increment as necessary
     for i, label in enumerate(preb_labels):
-        # if (i < 10):
-        #     print("Label: ", label)
-        #     print("Label length: ", len(label))
+        print("preb label", label)
+        print("preb label length", len(label))
         if len(label) != 7:
             Tn_1 += 1
             continue
@@ -194,10 +240,12 @@ def accuracy(logits, labels):
     accuracy = Tp * 1.0 / total_sequences
     print(f"[Info] Test Accuracy: {accuracy} [True Positives: {Tp}, Type I Errors: {Tn_1}, Type II Errors: {Tn_2}, Total: {total_sequences}]")
 
+    
+
         
     return 0
 
-def train(model, train_inputs, train_labels, epochs=5):
+def train(model, train_inputs, train_labels, epochs=1):
     acc = []
     input_shape = (None, 24, 94, 3)
     model.build(input_shape) # Input shape

@@ -8,7 +8,7 @@ import cv2
 
 import matplotlib.pyplot as plt
 
-ALL_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-"
+ALL_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 CHAR_MAP = {char: idx for idx, char in enumerate(ALL_CHARS)}
 REVERSE_CHAR_MAP = {idx: char for idx, char in enumerate(ALL_CHARS)}
 

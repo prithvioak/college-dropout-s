@@ -43,37 +43,39 @@ class LPRNetModel(tf.keras.Model):
 
     def __init__(self, lpr_max_len=0, phase=0, class_num=37, dropout_rate=0.5, **kwargs):
         super().__init__(**kwargs)
-        # self.model = tf.keras.Sequential(
-        #     layers = [
-        #         tf.keras.layers.Conv2D(filters = 64, kernel_size = 3, input_shape=(24, 94, 3)),
-        #         tf.keras.layers.BatchNormalization(),
-        #         tf.keras.layers.ReLU(), # 2 
-        #         tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,1)),
-        #         small_basic_block(64, 128),
-        #         tf.keras.layers.BatchNormalization(),
-        #         tf.keras.layers.ReLU(), # 6
-        #         tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,2)),
-        #         small_basic_block(64,256),
-        #         tf.keras.layers.BatchNormalization(),
-        #         tf.keras.layers.ReLU(), # 10
-        #         small_basic_block(256,256),
-        #         tf.keras.layers.BatchNormalization(),
-        #         tf.keras.layers.ReLU(), # 13
-        #         tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,2)),
-        #         tf.keras.layers.Dropout(rate=dropout_rate),
-        #         tf.keras.layers.Conv2D(filters = 256, kernel_size = (1,4)),
-        #         tf.keras.layers.BatchNormalization(),
-        #         tf.keras.layers.ReLU(), # 18
-        #         tf.keras.layers.Dropout(rate=dropout_rate),
-        #         tf.keras.layers.Conv2D(filters = class_num, kernel_size = (13,1)),
-        #         tf.keras.layers.BatchNormalization(),
-        #         tf.keras.layers.ReLU(), # 22
-        #     ]
-        # )
+        self.model = tf.keras.Sequential(
+            layers = [
+                tf.keras.layers.Conv2D(filters = 64, kernel_size = 3, input_shape=(24, 94, 3)),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(), # 2 
+                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,1)),
+                small_basic_block(64, 128),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(), # 6
+                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,2)),
+                small_basic_block(64,256),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(), # 10
+                small_basic_block(256,256),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(), # 13
+                tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,2)),
+                tf.keras.layers.Dropout(rate=dropout_rate),
+                tf.keras.layers.Conv2D(filters = 256, kernel_size = (1,4)),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(), # 18
+                tf.keras.layers.Dropout(rate=dropout_rate),
+                tf.keras.layers.Conv2D(filters = class_num, kernel_size = (13,1)),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(), # 22
+            ]
+        )
 
-        # self.container = tf.keras.layers.Conv2D(filters=class_num, kernel_size=(1, 1), strides=(1, 1))
+        self.container = tf.keras.layers.Conv2D(filters=class_num, kernel_size=(1, 1), strides=(1, 1))
 
         self.optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=0.005)
+
+        
 
         
 

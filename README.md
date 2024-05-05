@@ -11,6 +11,7 @@ Now, you can run both models on this data!
 
 ### Pre-process
 Our pre-processing includes cropping the car images to include only the license plates. 
-'get_inputs' returns these cropped images as a tensor, to be used in the LPRNet Model which makes use of non-descript sequence data. 
+'get_inputs_LRPNet' returns these cropped images as a tensor, to be used in the LPRNet Model which makes use of non-descript sequence data. 
+'get_labels_LPRNet' returns 
 'get_segmented_images' returns a tensor of the segmented characters for each image, to be used in the Segmentation Model. This is done systematically through non-**** computer vision functions (cv2).
-'get_labels' returns 
+'get_labels'

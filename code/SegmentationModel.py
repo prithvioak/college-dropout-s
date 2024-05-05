@@ -11,7 +11,6 @@ class SegmentationModel(tf.keras.Model):
 
         self.batch_size = 50
         self.num_classes = 36
-        self.num_epochs = 10
         self.learning_rate = 1e-3
         self.optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=self.learning_rate)
 
@@ -20,21 +19,29 @@ class SegmentationModel(tf.keras.Model):
             tf.keras.layers.Conv2D(filters = 64, kernel_size = 3),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
+            # tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,1)),
+            # tf.keras.layers.Dropout(0.5),
             tf.keras.layers.Conv2D(filters = 64, kernel_size = 3),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
             tf.keras.layers.Conv2D(filters = 64, kernel_size = 3),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
+            # tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,1)),
+            # tf.keras.layers.Dropout(0.5),
             
         ])
-        self.output_layer = tf.keras.layers.Dense(self.num_classes)# TODO: softmax?
+        # self.output_layer1 = tf.keras.layers.Dense(self.num_classes, activation = 'relu')
+        self.output_layer2 = tf.keras.layers.Dense(self.num_classes) # Softmax?
+
 
     def call(self, x): # Input shape: (batch_size, num_chars_per_image=7, height=32, width=24, channels=3)
         # print("x shape",x.shape)
         x = self.model(x)
         x = tf.reshape(x, (x.shape[0], 7, -1))
-        x = self.output_layer(x)
+        # x = self.output_layer1(x)
+        x = self.output_layer2(x)
+
         return x
 
 
@@ -67,6 +74,12 @@ class SegmentationModel(tf.keras.Model):
         correct_predictions = tf.equal(tf.argmax(logits, axis=2), tf.argmax(labels, axis=2))
         correct_plates = tf.reduce_all(correct_predictions, axis=1)
         return tf.reduce_sum(tf.cast(correct_plates, tf.int32)) # RETURNS NUMBER OF TRUE POSITIVES
+    
+    def per_char_accuracy(self, logits, labels):
+        '''
+        Computes the accuracy of each character in the license plate
+        '''
+        accuracies = []
 
 
 def train(model, train_inputs, train_labels):
@@ -80,7 +93,7 @@ def train(model, train_inputs, train_labels):
     batch_inputs = np.array_split(train_inputs, num_batches)
     batch_labels = np.array_split(train_labels, num_batches)
 
-    for epoch in range(10):
+    for epoch in range(5):
 
         for batch in range(num_batches):
             
@@ -93,10 +106,11 @@ def train(model, train_inputs, train_labels):
 
             gradients = tape.gradient(loss, model.trainable_variables)
             model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-
-        print(f"Epoch {epoch} Train Character-Wise Accuracy: {model.mean_accuracy(model(train_inputs), train_labels)}")
-        print(f"Epoch {epoch} Train True Positive Rate: {model.tp_rate(model(train_inputs), train_labels)}")
-        print(f"Epoch {epoch} Train True Positive Count: {model.tp_count(model(train_inputs), train_labels)}")
+        logits = model(train_inputs)
+        print(f"Epoch {epoch} Train Character-Wise Accuracy: {model.mean_accuracy(logits, train_labels)}")
+        print(f"Epoch {epoch} Train True Positive Rate: {model.tp_rate(logits, train_labels)}")
+        print(f"Epoch {epoch} Train True Positive Count: {model.tp_count(logits, train_labels)}")
+        
     return None
 
 def test(model, test_inputs, test_labels):
@@ -107,7 +121,7 @@ def test(model, test_inputs, test_labels):
 
 
 data = get_data()
-threshold = 1000
+threshold = 500
 model = SegmentationModel()
 train(model, data[0][0:threshold], data[1][0:threshold])
 test(model, data[0][threshold:threshold+200], data[1][threshold:threshold+200])

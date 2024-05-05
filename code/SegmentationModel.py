@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from preprocessing import get_data, ALL_CHARS, CHAR_MAP
+from preprocessing import get_data_segmented, ALL_CHARS, CHAR_MAP
 import time
 
 
@@ -19,16 +19,12 @@ class SegmentationModel(tf.keras.Model):
             tf.keras.layers.Conv2D(filters = 64, kernel_size = 3),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
-            # tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,1)),
-            # tf.keras.layers.Dropout(0.5),
             tf.keras.layers.Conv2D(filters = 64, kernel_size = 3),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
             tf.keras.layers.Conv2D(filters = 64, kernel_size = 3),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
-            # tf.keras.layers.MaxPool2D(pool_size=(3,3), strides=(1,1)),
-            # tf.keras.layers.Dropout(0.5),
             
         ])
         # self.output_layer1 = tf.keras.layers.Dense(self.num_classes, activation = 'relu')
@@ -36,7 +32,6 @@ class SegmentationModel(tf.keras.Model):
 
 
     def call(self, x): # Input shape: (batch_size, num_chars_per_image=7, height=32, width=24, channels=3)
-        # print("x shape",x.shape)
         x = self.model(x)
         x = tf.reshape(x, (x.shape[0], 7, -1))
         # x = self.output_layer1(x)
@@ -84,7 +79,6 @@ class SegmentationModel(tf.keras.Model):
 
 def train(model, train_inputs, train_labels):
 
-    # TODO: DELETE, took from CNN assignment
     # Shuffle inputs and labels and split into batches
     shuffled_indices = tf.random.shuffle(tf.range(tf.shape(train_inputs)[0])) #Shuffle indices of the input examples
     train_inputs = tf.gather(train_inputs, shuffled_indices)
@@ -120,7 +114,7 @@ def test(model, test_inputs, test_labels):
     return None
 
 
-data = get_data()
+data = get_data_segmented()
 threshold = 500
 model = SegmentationModel()
 train(model, data[0][0:threshold], data[1][0:threshold])

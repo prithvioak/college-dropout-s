@@ -81,7 +81,34 @@ def get_labels():
     # print("first 5 labels: ", [(plates[i], onehot[i]) for i in range(5)])
     return np.array(onehot)
 
-def get_inputs():
+def get_labels_lprnet():
+    '''
+    This function reads the txt files and extracts the license plate values.
+    Our labels are just the raw text values of the license plates because we are using CTC loss.
+    '''
+    plates = []
+    for i in range(1,5001):
+        num_zeroes = 6 - len(str(i))
+        zeroes = ""
+        for j in range(num_zeroes):
+            zeroes += "0" # file name purposes
+        txt_fp = "data/cars-br/img_" + zeroes + str(i) + ".txt"
+        # open txt file with car information
+        with open(txt_fp, "r") as txt_file:
+            file_contents = txt_file.readlines()
+            plate_id = file_contents[1].split(" ")
+            # get the plate values from the txt files
+            plate = plate_id[1]
+            # add plate values to labels array
+            plate = list(plate)[:-1]
+            # convert all characters to their unique values gathered from the dictionary
+            new_plate = []
+            for i in plate:
+                new_plate.append(CHAR_MAP[i])
+            plates.append(new_plate)
+    return np.array(plates)
+
+def get_inputs_lprnet():
     # TODO: Implement Spatial Transformer Layer proprocess to improve model performance
     ## 24 is the width, 94 is the height of the image
     # We chose these dimensions to be consistent with the basis paper
@@ -185,11 +212,15 @@ def get_segmented_images():
 # TODO: call preprocess() if the cropped images are not already saved
 # preprocess()
 
-def get_data():
-    # inputs = get_inputs()
+def get_data_segmented():
     inputs = get_segmented_images()
     labels = get_labels()
     return inputs, labels
 
+def get_data_lprnet():
+    inputs = get_inputs_lprnet()
+    labels = get_labels_lprnet()
+    return inputs, labels
+
 # FOR TESTING PURPOSES
-get_segmented_images()
+# get_segmented_images()

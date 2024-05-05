@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from preprocessing import get_data, ALL_CHARS, CHAR_MAP
+from preprocessing import get_data_lprnet, ALL_CHARS, CHAR_MAP
 import time
 
 batch_size = 3
@@ -72,11 +72,7 @@ class LPRNetModel(tf.keras.Model):
         )
 
         self.container = tf.keras.layers.Conv2D(filters=class_num, kernel_size=(1, 1), strides=(1, 1))
-
         self.optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=0.005)
-
-        
-
         
 
     def call(self, image): # Image shape: (2 x 24 x 94 x 3)
@@ -154,45 +150,6 @@ def accuracy(logits, labels):
     Calculates the model's prediction accuracy
     """
 
-    # seq_lens = tf.fill([batch_size], 18)
-    # # print("seq_lens", seq_lens)
-
-    # # max_time=18 should be 37, batch_size, num_classes 
-    # logits = tf.transpose(logits, perm=(1, 0, 2))
-    # logits = tf.nn.log_softmax(logits, axis=2)
-    # print("logits.shape ",logits.shape)
-
-    # # NEW
-    # decoded, neg_sum_logits = tf.nn.ctc_greedy_decoder(logits, seq_lens) 
-    # print("decoded values", decoded[0].values)
-    # print("decoded indices", decoded[0].indices)
-    # print("decoded dense shape", decoded[0].dense_shape)
-    # print("neg_sum_logits", neg_sum_logits)
-    
-
-    # dense_decoded = tf.sparse.to_dense(decoded[0], default_value=-1)  # Convert sparse to dense and fill with -1 for missing values
-    # dense_decoded = tf.dtypes.cast(dense_decoded, tf.int32)  # Ensure the tensor is of type int for further processing
-
-    # # Now, you might want to trim or pad the outputs to your fixed length (7)
-    # desired_length = 7
-    # dense_decoded = dense_decoded[:, :desired_length]  # Trim to desired length
-    # # If sequences are shorter, you should pad them to the desired length
-    # dense_decoded = tf.pad(dense_decoded, [[0, 0], [0, max(0, desired_length - tf.shape(dense_decoded)[1])]], constant_values=-1)
-
-    # print("Final decoded shape: ", dense_decoded.shape)
-    # print("Final decoded values: ", dense_decoded.numpy())
-
-
-
-
-    
-
-
-
-    
-
-    # # TODO ask about this
-
     # Logits, pre-transpose (BATCH_SIZE, 18, 37)
     logits = tf.transpose(logits, perm=(0, 2, 1))
     print("logits.shape", logits.shape)
@@ -266,5 +223,5 @@ def train(model, train_inputs, train_labels, epochs=1):
         acc.append(accuracy(logits, train_labels))
         print("Accuracy:", acc)
 
-data = get_data()
+data = get_data_lprnet()
 train(LPRNetModel(), data[0][0:batch_size], data[1][0:batch_size])

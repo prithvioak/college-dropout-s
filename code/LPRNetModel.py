@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 from preprocessing import get_data_lprnet, ALL_CHARS, CHAR_MAP
 import time
+import matplotlib.pyplot as plt
 
 batch_size = 3
 
@@ -201,16 +202,15 @@ def accuracy(logits, labels):
     accuracy = Tp * 1.0 / total_sequences
     print(f"[Info] Test Accuracy: {accuracy} [True Positives: {Tp}, Type I Errors: {Tn_1}, Type II Errors: {Tn_2}, Total: {total_sequences}]")
 
-    
-
         
     return 0
 
-def train(model, train_inputs, train_labels, epochs=1):
+def train(model, train_inputs, train_labels, epochs=10):
     acc = []
     input_shape = (None, 24, 94, 3)
     model.build(input_shape) # Input shape
 
+    losses = []
 
     for epoch in range(epochs):
         with tf.GradientTape() as tape:
@@ -218,10 +218,23 @@ def train(model, train_inputs, train_labels, epochs=1):
             logits = model(train_inputs)
             loss = model.loss(logits, train_labels)
             print(f"Epoch {epoch} Loss:", loss)
+            losses.append(loss)
         gradients = tape.gradient(loss, model.trainable_variables)
         model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         acc.append(accuracy(logits, train_labels))
         print("Accuracy:", acc)
+
+    losses = np.array(losses)
+    visualize_loss(losses)
+
+def visualize_loss(losses): 
+    x = [i for i in range(len(losses))]
+    plt.plot(x, losses)
+    plt.title('LPRNet - Loss per epoch')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.show()  
+
 
 data = get_data_lprnet()
 train(LPRNetModel(), data[0][0:batch_size], data[1][0:batch_size])

@@ -136,7 +136,6 @@ def get_segmented_images():
     Returns a list (length 5000) of lists (length 7) of characters where each character is a 3D numpy array of dimensions 32x24x3
     '''
     total_characters = np.zeros((5000, 7, 32, 24, 3))
-
     for i in range(1,5001):
         num_zeroes = 6 - len(str(i))
         zeroes = ""
@@ -146,12 +145,10 @@ def get_segmented_images():
         image = cv2.imread(img_fp)
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
         # Find top 7 contours by area and sort them from left to right
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         biggest_contours = sorted(contours, key=cv2.contourArea, reverse=True)[:7]
         contours = sorted(biggest_contours, key=lambda c: cv2.boundingRect(c)[0])
-
         # Loop through contours
         for j, contour in enumerate(contours):
             # Get bounding box
@@ -159,9 +156,8 @@ def get_segmented_images():
             
             # Draw bounding box
             cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 1)
-
+            
             character_region = thresh[y:y+h, x:x+w]
-
             # character_region = cv2.resize(character_region, (24, 32))
             # resize character region to 32x24 by padding, not changing aspect ratio
             character_region = cv2.resize(character_region, (24, 32), interpolation=cv2.INTER_AREA)
@@ -173,16 +169,14 @@ def get_segmented_images():
             # Append to the list of characters
             total_characters[i-1, j] = character_tensor
         # if i==1:
-            # Uncomment to visualize the segmented characters
-            # for j, character in enumerate(total_characters[i-1]):
-            #     cv2.imshow('Character {}'.format(j+1), character)
-            # cv2.imshow('Segmented Characters', image)
+        #     # Uncomment to visualize the segmented characters
+        #     # for j, character in enumerate(total_characters[i-1]):
+        #     #     cv2.imshow('Character {}'.format(j+1), character)
+        #     # cv2.imshow('Segmented Characters', image)
             
-            # cv2.imshow('Segmented Characters', np.hstack([np.pad(character, ((10, 10), (10, 10), (0, 0)), constant_values=0.90) for character in total_characters[i-1]]))
-
-
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
+        #     cv2.imshow('Segmented Characters', np.hstack([np.pad(character, ((10, 10), (10, 10), (0, 0)), constant_values=0.90) for character in total_characters[i-1]]))
+        #     cv2.waitKey(0)
+        #     cv2.destroyAllWindows()
         
     # convert to Tensor
     total_characters = tf.convert_to_tensor(total_characters)

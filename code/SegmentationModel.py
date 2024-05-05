@@ -2,6 +2,8 @@ import numpy as np
 import tensorflow as tf
 from preprocessing import get_data_segmented, ALL_CHARS, CHAR_MAP
 import time
+import matplotlib.pyplot as plt
+
 
 
 class SegmentationModel(tf.keras.Model):
@@ -87,7 +89,9 @@ def train(model, train_inputs, train_labels):
     batch_inputs = np.array_split(train_inputs, num_batches)
     batch_labels = np.array_split(train_labels, num_batches)
 
-    for epoch in range(5):
+    losses = []
+    for epoch in range(10):
+        epoch_loss = []
 
         for batch in range(num_batches):
             
@@ -97,6 +101,7 @@ def train(model, train_inputs, train_labels):
             with tf.GradientTape() as tape:
                 logits = model(batch_i_inputs)
                 loss = model.loss(logits, batch_i_labels)
+                epoch_loss.append(loss)
 
             gradients = tape.gradient(loss, model.trainable_variables)
             model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -104,14 +109,29 @@ def train(model, train_inputs, train_labels):
         print(f"Epoch {epoch} Train Character-Wise Accuracy: {model.mean_accuracy(logits, train_labels)}")
         print(f"Epoch {epoch} Train True Positive Rate: {model.tp_rate(logits, train_labels)}")
         print(f"Epoch {epoch} Train True Positive Count: {model.tp_count(logits, train_labels)}")
+
+        epoch_loss = np.array(epoch_loss)
+        epoch_loss = np.mean(epoch_loss)
+        losses.append(epoch_loss)
+    losses = np.array(losses)
+    visualize_loss(losses)
         
     return None
+
 
 def test(model, test_inputs, test_labels):
     print(f"Test Character-Wise Accuracy: {model.mean_accuracy(model(test_inputs), test_labels)}")
     print(f"Test True Positive Rate: {model.tp_rate(model(test_inputs), test_labels)}")
     print(f"Test True Positive Count: {model.tp_count(model(test_inputs), test_labels)}")
     return None
+
+def visualize_loss(losses): 
+    x = [i for i in range(len(losses))]
+    plt.plot(x, losses)
+    plt.title('Segmentation - Loss per epoch')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.show()  
 
 
 data = get_data_segmented()

@@ -20,5 +20,5 @@ Our pre-processing includes cropping the car images to include only the license 
 Accuracy: 0 :(
 
 ### Segmented Model
-Character-wise Accuracy: 44.4%
+Character-wise Accuracy: 44.4% <br>
 Sequence-wise (True) Accuracy: 5.4%

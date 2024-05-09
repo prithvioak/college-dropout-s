@@ -1,5 +1,6 @@
 # college-dropout-s
 Our project is on license plate recognition. Our code supports license plate preprocessing, character segmentation, and two different model implementations for character sequence recognition based on image input.
+Devpost Link: https://devpost.com/software/college-dropouts
 
 ## To Run
 Download the dataset here: https://www.inf.ufpr.br/vri/databases/tbFcZE-RodoSol-ALPR.zip (3 GB)
